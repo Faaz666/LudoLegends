@@ -1,33 +1,43 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "type": "cppbuild",
-            "label": "Build Ludo Demo",
-            "command": "g++",
-            "args": [
-                "-g",
-                "${workspaceFolder}/src/*.cpp",
-                "-I${workspaceFolder}/include",
-                "-I${workspaceFolder}/SFML/include",  
-                "-L${workspaceFolder}/SFML/lib",
-                "-o",
-                "${workspaceFolder}/bin/LudoLegends.exe",
-                "-lsfml-graphics",
-                "-lsfml-window",
-                "-lsfml-system"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}/bin"
-            },
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "detail": "Compiles using local SFML folder"
-        }
-    ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cppbuild",
+			"label": "Build Ludo Demo",
+			"command": "g++",
+			"args": [
+				"-g",
+				"${workspaceFolder}/src/*.cpp",
+				"-I${workspaceFolder}/include",
+				"-I${workspaceFolder}/SFML/include",
+				"-L${workspaceFolder}/SFML/lib",
+				"-o",
+				"${workspaceFolder}/bin/LudoLegends.exe",
+				"-lsfml-graphics",
+				"-lsfml-window",
+				"-lsfml-system",
+				"-lsfml-audio"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}/bin"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"detail": "Compiles using local SFML folder with Audio support"
+		},
+		{
+			"label": "Update asset paths",
+			"type": "shell",
+			"command": "echo Updating asset paths...",
+			"args": [],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
 }
