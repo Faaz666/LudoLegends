@@ -8,43 +8,39 @@
 #include <algorithm>
 #include <memory>
 
-// --- CONFIGURATION (1920x1080 Base) ---
-// Window and layout constants for HD display
-const int WIN_W = 1920;   // Window width
-const int WIN_H = 1080;   // Window height
-const float CELL = 60.0f; // Board cell size (15x15 grid)
-const float BOARD_W = 15 * CELL;  // Total board width
-const float UI_W = 500.0f;        // Right panel width for UI elements
-// Center the board on left side with UI panel on right
-const float OFF_X = (WIN_W - UI_W - BOARD_W) / 2.0f; 
+// window and layout constants
+const int WIN_W = 1920;
+const int WIN_H = 1080;
+const float CELL = 60.0f;
+const float BOARD_W = 15 * CELL;
+const float UI_W = 500.0f;
+const float OFF_X = (WIN_W - UI_W - BOARD_W) / 2.0f;
 const float OFF_Y = (WIN_H - BOARD_W) / 2.0f;
-const float ANIM_TIME = 0.59f; // Animation duration synced to audio length 
+const float ANIM_TIME = 0.59f;
 
-// --- MODERN PALETTE ---
-const sf::Color C_BG      = sf::Color(26, 26, 46);   
+// color palette
+const sf::Color C_BG      = sf::Color(26, 26, 46);
 const sf::Color C_PANEL   = sf::Color(35, 35, 50);
-const sf::Color C_RED     = sf::Color(229, 57, 53);  
+const sf::Color C_RED     = sf::Color(229, 57, 53);
 const sf::Color C_GREEN   = sf::Color(67, 160, 71);
-const sf::Color C_YELLOW  = sf::Color(255, 193, 7); 
-const sf::Color C_BLUE    = sf::Color(33, 150, 243); 
+const sf::Color C_YELLOW  = sf::Color(255, 193, 7);
+const sf::Color C_BLUE    = sf::Color(33, 150, 243);
 const sf::Color C_WHITE   = sf::Color(245, 245, 245);
 const sf::Color C_TEXT    = sf::Color(220, 220, 220);
 const sf::Color C_BLACK   = sf::Color(10, 10, 15);
 const sf::Color C_GOLD    = sf::Color(255, 215, 0);
 
-// --- PATH DATA ---
+// board path lookup tables
 const int PX[52] = { 1,2,3,4,5, 6,6,6,6,6, 6, 7,8, 8,8,8,8,8, 9,10,11,12,13,14, 14,14, 13,12,11,10,9, 8,8,8,8,8, 8, 7,6, 6,6,6,6,6, 5,4,3,2,1,0, 0,0 };
 const int PY[52] = { 6,6,6,6,6, 5,4,3,2,1, 0, 0,0, 1,2,3,4,5, 6,6,6,6,6,6, 7,8, 8,8,8,8,8, 9,10,11,12,13, 14, 14,14, 13,12,11,10,9, 8,8,8,8,8,8, 7,6 };
 
-// --- ASSETS ---
-// Centralized resource manager using composition pattern
-// Aggregates all textures, sounds, and fonts needed by the game
+// resource manager
 struct Assets {
-    sf::Texture tRed, tGreen, tYel, tBlue, tStar, tCenter;  // Token & board textures
-    sf::SoundBuffer bRoll, bMove, bKill, bWin;               // Audio buffers
-    sf::Sound sRoll, sMove, sKill, sWin;                     // Playable sounds
-    sf::Font fontBold, fontReg;                              // Text fonts
-    bool hasImages;  // Fallback flag if images fail to load
+    sf::Texture tRed, tGreen, tYel, tBlue, tStar, tCenter;
+    sf::SoundBuffer bRoll, bMove, bKill, bWin;
+    sf::Sound sRoll, sMove, sKill, sWin;
+    sf::Font fontBold, fontReg;
+    bool hasImages;
 
     void load() {
         hasImages = true;
@@ -64,7 +60,6 @@ struct Assets {
         if(bKill.loadFromFile("Audios/kill.wav")) sKill.setBuffer(bKill);
         if(bWin.loadFromFile("Audios/win.wav")) sWin.setBuffer(bWin);
 
-        // Robust Font Loading
         std::vector<std::string> paths = {"Fonts/Montserrat-Bold.ttf", "../Fonts/Montserrat-Bold.ttf", "Montserrat-Bold.ttf", "C:/Windows/Fonts/arial.ttf"};
         for(const auto& p : paths) if(fontBold.loadFromFile(p)) break;
         
@@ -75,22 +70,19 @@ struct Assets {
     }
 };
 
-// --- HELPER MATH ---
-// Convert grid coordinates to screen pixels
+// convert grid to screen pixels
 sf::Vector2f getGridPos(int col, int row) {
     return sf::Vector2f(OFF_X + col * CELL, OFF_Y + row * CELL);
 }
 
-// Calculate token position based on player ID and step count
-// Uses lookup tables (PX/PY) for accurate path following
-// step=-1: home base, 0-50: main track, 51-56: home stretch
+// get token position based on player and step
 sf::Vector2f getStepPos(int pId, int step, int tokenIndex = 0) {
     if (step == -1) { 
         float startX = 0, startY = 0;
-        if (pId == 0) { startX = 0; startY = 0; }       
-        else if (pId == 1) { startX = 9; startY = 0; }  
-        else if (pId == 2) { startX = 9; startY = 9; }  
-        else { startX = 0; startY = 9; }                
+        if (pId == 0) { startX = 0; startY = 0; }
+        else if (pId == 1) { startX = 9; startY = 0; }
+        else if (pId == 2) { startX = 9; startY = 9; }
+        else { startX = 0; startY = 9; }
 
         float localX = (tokenIndex % 2 == 0) ? 1.5f : 4.5f;
         float localY = (tokenIndex < 2) ? 1.5f : 4.5f;
@@ -101,12 +93,10 @@ sf::Vector2f getStepPos(int pId, int step, int tokenIndex = 0) {
     
     int col = 0, row = 0;
     if(step <= 50) { 
-        // Main track: use global path lookup
         int globalIndex = (pId*13 + step) % 52;
         col = PX[globalIndex]; 
         row = PY[globalIndex];
     } else { 
-        // Home stretch: player-specific paths toward center
         int stretchOffset = step - 51;
         if(pId==0) {row=7; col=1+stretchOffset;} 
         else if(pId==1) {col=7; row=1+stretchOffset;} 
@@ -116,8 +106,7 @@ sf::Vector2f getStepPos(int pId, int step, int tokenIndex = 0) {
     return sf::Vector2f(OFF_X + col*CELL + CELL/2, OFF_Y + row*CELL + CELL/2);
 }
 
-// --- BUTTON CLASS ---
-// Interactive UI element with hover effects
+// clickable ui button
 class Button {
     sf::RectangleShape bg;
     sf::Text label;
@@ -147,7 +136,6 @@ public:
         hovered = contains(mouse);
     }
     void draw(sf::RenderWindow& w) {
-        // Glow effect when hovered
         float scale = hovered ? 1.05f + 0.03f * sin(hoverClock.getElapsedTime().asSeconds() * 8) : 1.0f;
         sf::Vector2f pos = bg.getPosition();
         sf::Vector2f size = bg.getSize();
@@ -170,11 +158,10 @@ public:
     }
 };
 
-
-// --- VISUALS ---
+// dice visual display
 class VisualDice {
     sf::RectangleShape box; 
-    sf::CircleShape diceDots[7];  // Individual dots for standard die pattern
+    sf::CircleShape diceDots[7];
 public:
     VisualDice() {
         box.setSize({120,120}); 
@@ -194,8 +181,7 @@ public:
         float centerY = 260; 
         float dotGap = 35;
 
-        // Draw standard dice dot patterns based on value
-        if(value%2!=0) { diceDots[0].setPosition(centerX, centerY); w.draw(diceDots[0]); }  // Center dot
+        if(value%2!=0) { diceDots[0].setPosition(centerX, centerY); w.draw(diceDots[0]); }
         if(value>1) { 
             diceDots[1].setPosition(centerX-dotGap, centerY-dotGap); w.draw(diceDots[1]); 
             diceDots[2].setPosition(centerX+dotGap, centerY+dotGap); w.draw(diceDots[2]); 
@@ -211,37 +197,30 @@ public:
     }
 };
 
-// --- DICE ABSTRACTION (OOP) ---
-// Demonstrates INHERITANCE and POLYMORPHISM (rubric requirement)
-// Base class defines interface, derived class implements behavior
+// abstract dice with polymorphism
 class Dice {
 public:
-    virtual ~Dice() {}           // Virtual destructor for proper cleanup
-    virtual int roll() = 0;      // Pure virtual method - must be overridden
+    virtual ~Dice() {}
+    virtual int roll() = 0;
 };
 
-// Concrete implementation using standard random number generation
 class RandomDice : public Dice {
 public:
-    int roll() override { return (std::rand() % 6) + 1; }  // Returns 1-6
+    int roll() override { return (std::rand() % 6) + 1; }
 };
 
-// --- TILE HIERARCHY (OOP) ---
-// Demonstrates INHERITANCE and POLYMORPHISM (rubric requirement)
-// Used to check if a board position prevents captures
+// tile polymorphism for safe zones
 class Tile {
 public:
-    virtual ~Tile() {}                          // Virtual destructor
-    virtual bool isSafe() const { return false; }  // Default: not safe
+    virtual ~Tile() {}
+    virtual bool isSafe() const { return false; }
 };
 
-// Regular track tiles where captures can occur
 class NormalTile : public Tile {
 public:
     bool isSafe() const override { return false; }
 };
 
-// Star tiles where tokens are immune to capture
 class SafeTile : public Tile {
 public:
     bool isSafe() const override { return true; }
@@ -280,7 +259,7 @@ public:
     }
 };
 
-// --- MENU SYSTEM ---
+// menu background animation
 struct MenuBubble { sf::Vector2f pos, vel; float radius; sf::Color col; };
 class MenuSystem {
     std::vector<MenuBubble> bubbles;
@@ -312,21 +291,20 @@ public:
     }
 };
 
-// Player data structure demonstrating COMPOSITION (owns tokens)
-// and ASSOCIATION (relates to other players via game state)
+// player data with composition
 struct Player { 
-    int id;                      // Player index (0-3)
-    std::string name;            // Display name
-    sf::Color col;               // Player color
-    std::vector<Token> tokens;   // Composition: owns 4 tokens
-    bool killed = false;         // Has captured an enemy (unlocks home stretch)
-    bool finished = false;       // All tokens in goal
-    bool forfeited = false;      // Voluntarily quit
-    int finalRank = 0;           // Finish position (1st, 2nd, etc.)
-    int captureCount = 0;        // Number of enemies captured this game
+    int id;
+    std::string name;
+    sf::Color col;
+    std::vector<Token> tokens;
+    bool killed = false;
+    bool finished = false;
+    bool forfeited = false;
+    int finalRank = 0;
+    int captureCount = 0;
 };
 
-// --- PARTICLES ---
+// particle effects
 struct Particle { sf::Vector2f position; sf::Vector2f velocity; float life; sf::Color color; };
 class FireworkSystem {
     std::vector<Particle> particles;
@@ -365,10 +343,7 @@ class Game {
     sf::ConvexShape fallbackStar;
     MenuSystem menuAnim;
     
-    // Track tiles for polymorphic safe checks (global indices 0..51)
     std::vector<std::unique_ptr<Tile>> trackTiles;
-    
-    // Dice abstraction (used to finalize a roll)
     RandomDice diceRoller;
     
     std::vector<Player> players;
@@ -396,14 +371,13 @@ class Game {
     sf::Text playerLabels[4];
     sf::Text captureCounters[4];
 
-
 public:
     Game() : win(sf::VideoMode(WIN_W, WIN_H), "Ludo Legends", sf::Style::Close | sf::Style::Resize) {        
-        std::srand(static_cast<unsigned>(std::time(nullptr))); // Seed RNG for true randomness        
+        std::srand(static_cast<unsigned>(std::time(nullptr)));
         win.setFramerateLimit(60);
         assets.load(); 
 
-        // --- BOARD GRID ---
+        // setup board grid
         for(int r=0;r<15;r++) for(int c=0;c<15;c++) {
             grid[r][c].setSize({CELL, CELL});
             grid[r][c].setPosition(getGridPos(c,r));
@@ -416,7 +390,7 @@ public:
             if(r==7&&c>0&&c<6) col=C_RED; if(c==7&&r>0&&r<6) col=C_GREEN;
             if(r==7&&c>8&&c<14) col=C_YELLOW; if(c==7&&r>8&&r<14) col=C_BLUE;
             
-            // Home Slots - match player zone colors
+            // home slots colored by player
             if ((r==1||r==4) && (c==1||c==4)) col = C_RED; 
             if ((r==1||r==4) && (c==10||c==13)) col = C_GREEN;
             if ((r==10||r==13) && (c==10||c==13)) col = C_YELLOW;
@@ -443,15 +417,12 @@ public:
         setupP(2, "YELLOW", C_YELLOW, assets.tYel);
         setupP(3, "BLUE", C_BLUE, assets.tBlue);
 
-        // Turn Highlight
         turnHighlighter.setSize({6*CELL, 6*CELL});
         turnHighlighter.setFillColor(sf::Color::Transparent);
         turnHighlighter.setOutlineThickness(8);
 
-        // UI Panel
         uiPanel.setSize({UI_W, WIN_H}); uiPanel.setPosition(WIN_W - UI_W, 0); uiPanel.setFillColor(C_PANEL);
 
-        // Fonts & Text
         txtTitle.setFont(assets.fontBold); txtTitle.setString("LUDO LEGENDS"); txtTitle.setCharacterSize(120); 
         txtTitle.setOrigin(txtTitle.getLocalBounds().width/2, 0); txtTitle.setPosition(WIN_W/2, 200); 
         txtTitle.setFillColor(C_WHITE); 
@@ -463,13 +434,11 @@ public:
         txtSub.setFont(assets.fontReg); txtSub.setString("PRESS ENTER TO START"); txtSub.setCharacterSize(40); 
         txtSub.setOrigin(txtSub.getLocalBounds().width/2, 0); txtSub.setPosition(WIN_W/2, 600);
 
-        // Game UI Text
         float panelCenter = WIN_W - UI_W/2;
         txtTurn.setFont(assets.fontBold); txtTurn.setCharacterSize(45); 
         
         txtInfo.setFont(assets.fontReg); txtInfo.setCharacterSize(24); txtInfo.setFillColor(C_TEXT);
         
-        // Menu Options Text
         txtMenuOptions.setFont(assets.fontReg);
         txtMenuOptions.setCharacterSize(26);
         txtMenuOptions.setFillColor(C_TEXT);
@@ -478,7 +447,6 @@ public:
         txtMenuOptions.setOrigin(mo.width/2, 0);
         txtMenuOptions.setPosition(WIN_W/2, 680);
         
-        // Leaderboard Box with improved aesthetics
         leaderboardBox.setSize({900, 700}); 
         leaderboardBox.setOrigin(450, 350);
         leaderboardBox.setPosition(WIN_W/2, WIN_H/2);
@@ -501,7 +469,6 @@ public:
         overlay.setSize({(float)WIN_W, (float)WIN_H});
         overlay.setFillColor(sf::Color(0,0,0,150));
 
-        // Help overlay and text
         helpOverlay.setSize({(float)WIN_W, (float)WIN_H});
         helpOverlay.setFillColor(sf::Color(0,0,0,200));
         txtHelp.setFont(assets.fontReg);
@@ -520,56 +487,46 @@ public:
         txtHelp.setOrigin(hb.width/2, hb.height/2);
         txtHelp.setPosition(WIN_W/2, WIN_H/2);
 
-        // Setup interactive menu buttons with hover effects
         btnStart.setup(assets.fontBold, "START GAME", WIN_W/2 - 150, 500, 300, 60, C_GREEN);
         btnHelp.setup(assets.fontBold, "HOW TO PLAY", WIN_W/2 - 150, 580, 300, 60, C_BLUE);
         btnQuit.setup(assets.fontBold, "QUIT", WIN_W/2 - 150, 660, 300, 60, C_RED);
         btnRestart.setup(assets.fontBold, "PLAY AGAIN", WIN_W/2 - 150, WIN_H - 150, 300, 60, C_GREEN);
 
-        // Setup player indicators in UI panel - properly aligned with centered text
         float indicatorStartY = 530;
-        float indicatorX = WIN_W - UI_W + 200;  // Balanced position in UI panel
+        float indicatorX = WIN_W - UI_W + 200;
         for(int i=0; i<4; i++) {
-            float rowY = indicatorStartY + i*100;  // More spacing between rows
+            float rowY = indicatorStartY + i*100;
             
-            // Circular player indicator
             playerIndicators[i].setRadius(25);
             playerIndicators[i].setOrigin(25, 25);
             playerIndicators[i].setOutlineThickness(3);
             playerIndicators[i].setOutlineColor(C_WHITE);
             playerIndicators[i].setPosition(indicatorX, rowY);
             
-            // Player name label - properly centered vertically
             playerLabels[i].setFont(assets.fontReg);
             playerLabels[i].setCharacterSize(22);
             playerLabels[i].setFillColor(C_TEXT);
             
-            // Capture counter - properly centered vertically
             captureCounters[i].setFont(assets.fontReg);
             captureCounters[i].setCharacterSize(16);
             captureCounters[i].setFillColor(sf::Color(180,180,180));
         }
 
-        // Initialize polymorphic track tiles for safe checks
         initTrackTiles();
     }
 
-    // Initialize the 52-tile track with safe tiles at specific indices
-    // Demonstrates polymorphism: trackTiles holds Tile* pointing to SafeTile or NormalTile
+    // initialize track tiles with safe zones
     void initTrackTiles() {
         trackTiles.clear();
         trackTiles.resize(52);
         for(int i=0;i<52;i++) trackTiles[i] = std::make_unique<NormalTile>();
-        // Global safe indices per rules
         const int safeIdx[8] = {0,8,13,21,26,34,39,47};
         for(int s : safeIdx) { trackTiles[s] = std::make_unique<SafeTile>(); }
     }
 
-    // Initialize a player with 4 tokens positioned in home base corners
-    // Demonstrates composition: Player owns Tokens
+    // setup player with 4 tokens in home base
     void setupP(int id, std::string n, sf::Color c, sf::Texture& t) {
         Player p = {id, n, c};
-        // Create 4 tokens for this player
         for(int i=0; i<4; i++) p.tokens.emplace_back(i, id, t, assets.hasImages, c);
         players.push_back(p);
     }
@@ -586,7 +543,6 @@ public:
                     if(e.key.code == sf::Keyboard::Escape) { win.close(); }
                 }
                 
-                // Handle menu button clicks
                 if(state == MENU && e.type == sf::Event::MouseButtonPressed && e.mouseButton.button == sf::Mouse::Left) {
                     sf::Vector2i m = sf::Mouse::getPosition(win);
                     if(btnStart.contains(m)) { state = PLAYING; updateUI("Space to Roll"); assets.sWin.play(); }
@@ -594,7 +550,6 @@ public:
                     if(btnQuit.contains(m)) { win.close(); }
                 }
                 
-                // Handle restart button in game over screen
                 if(state == GAME_OVER && e.type == sf::Event::MouseButtonPressed && e.mouseButton.button == sf::Mouse::Left) {
                     sf::Vector2i m = sf::Mouse::getPosition(win);
                     if(btnRestart.contains(m)) { resetGame(); }
@@ -628,11 +583,10 @@ public:
                 btnQuit.update(mouse);
             }
             if(state == GAME_OVER) {
-                // Enhanced confetti: multiple colors, varied spawns for celebration effect
                 if(rand()%10==0) {
                     sf::Color confettiColors[] = {C_RED, C_GREEN, C_YELLOW, C_BLUE, C_GOLD, C_WHITE};
                     int randomX = rand() % WIN_W;
-                    int randomY = rand() % 200 + 100;  // Upper portion of screen
+                    int randomY = rand() % 200 + 100;
                     fireworks.explode(randomX, randomY, confettiColors[rand()%6]);
                 }
                 fireworks.update();
@@ -652,11 +606,9 @@ public:
 
     void updateDiceAnim() {
         if(rollClock.getElapsedTime().asSeconds() < 0.5f) {
-            // Animate dice rolling with random values
             if((int)(rollClock.getElapsedTime().asMilliseconds()) % 8 == 0) 
                 visualDice.draw(win, (rand()%6)+1, players[curP].col); 
         } else {
-            // Animation complete: finalize roll result
             state = PLAYING;
             rolled = true;
             if(roll == 0) roll = diceRoller.roll();
@@ -743,28 +695,24 @@ public:
         }
     }
 
-    // Called after token animation completes
-    // Checks for captures, updates game state, and determines next turn
+    // check for captures and update game state after move
     void finalize() {
         anim = false;
-        // Capture detection: only on main track (steps 0-50), not in safe zones or home stretch
+        // check for captures on main track only
         if(movingT->steps <= 50 && !isSafe(movingT->steps)) {
             sf::Vector2f myPos = getStepPos(curP, movingT->steps);
-            // Loop through all opponents to check for collision
             for(auto& opponent : players) {
                 if(opponent.id == curP || opponent.forfeited || opponent.finished) continue;
                 for(auto& enemyToken : opponent.tokens) {
-                    // Check if enemy token is on same position
                     if(enemyToken.active && enemyToken.steps <= 50) {
                         sf::Vector2f enemyPos = getStepPos(opponent.id, enemyToken.steps);
-                        float positionTolerance = 5.0f;  // Pixel distance for collision detection
+                        float positionTolerance = 5.0f;
                         if(std::abs(myPos.x - enemyPos.x) < positionTolerance && 
                            std::abs(myPos.y - enemyPos.y) < positionTolerance) {
-                            // Capture: send enemy back to home
                             enemyToken.active = false;
                             enemyToken.steps = -1;
-                            players[curP].killed = true;      // Unlock home stretch
-                            players[curP].captureCount++;     // Track capture stat
+                            players[curP].killed = true;
+                            players[curP].captureCount++;
                             assets.sKill.play();
                         }
                     }
@@ -806,7 +754,6 @@ public:
     }
 
     void resetGame() {
-        // Reset all player states
         for(auto& p : players) {
             p.killed = false;
             p.finished = false;
@@ -857,18 +804,15 @@ public:
         if(state == MENU) {
             menuAnim.draw(win);
             win.draw(txtTitleShadow); win.draw(txtTitle);
-            // Draw interactive buttons
             btnStart.draw(win);
             btnHelp.draw(win);
             btnQuit.draw(win);
             if(showHelp) { win.draw(helpOverlay); win.draw(txtHelp); }
         }
         else if (state == GAME_OVER) {
-            // Draw board state in background
             win.draw(uiPanel);
             for(int r=0;r<15;r++) for(int c=0;c<15;c++) win.draw(grid[r][c]);
             
-            // Draw star tiles
             int starPos[8][2] = {{1,6}, {6,2}, {8,1}, {12,6}, {13,8}, {8,12}, {6,13}, {2,8}};
             for(auto& pos : starPos) {
                 if(assets.hasImages) { sStar.setPosition(getGridPos(pos[0],pos[1])); win.draw(sStar); }
@@ -876,7 +820,6 @@ public:
             }
             if(assets.hasImages) win.draw(sCenter);
             
-            // Draw all tokens in final positions
             for(auto& p : players) {
                 for(auto& t : p.tokens) {
                     sf::Vector2f pos = getStepPos(p.id, t.steps, t.id);
@@ -886,7 +829,6 @@ public:
             
             fireworks.draw(win);
             
-            // Gradient overlay effect
             sf::RectangleShape gradTop({(float)WIN_W, WIN_H/3.0f});
             gradTop.setPosition(0, 0);
             gradTop.setFillColor(sf::Color(10, 10, 20, 100));
@@ -902,13 +844,11 @@ public:
             win.draw(uiPanel);
             for(int r=0;r<15;r++) for(int c=0;c<15;c++) win.draw(grid[r][c]);
             
-            // Pulse Border
             int alpha = 150 + 100 * sin(textPulseClock.getElapsedTime().asSeconds() * 5);
             sf::Color bc = turnHighlighter.getOutlineColor(); bc.a = alpha;
             turnHighlighter.setOutlineColor(bc);
             win.draw(turnHighlighter);
 
-            // Draw star tiles at safe positions
             int starPos[8][2] = {{1,6}, {6,2}, {8,1}, {12,6}, {13,8}, {8,12}, {6,13}, {2,8}};
             for(auto& pos : starPos) {
                 if(assets.hasImages) { sStar.setPosition(getGridPos(pos[0],pos[1])); win.draw(sStar); }
@@ -926,7 +866,6 @@ public:
                 }
 
                 if(p.forfeited || p.finished) {
-                    // Base center positions for each player
                     float basePos[4][2] = {{OFF_X+3*CELL, OFF_Y+3*CELL}, {OFF_X+12*CELL, OFF_Y+3*CELL}, 
                                            {OFF_X+12*CELL, OFF_Y+12*CELL}, {OFF_X+3*CELL, OFF_Y+12*CELL}};
                     
@@ -942,24 +881,20 @@ public:
                 }
             }
 
-            // Draw dice in UI panel
             if(state == ROLLING_DICE) {
                 visualDice.draw(win, (rand()%6)+1, players[curP].col);
             } else {
                 visualDice.draw(win, roll, players[curP].col);
             }
 
-            // Draw UI text elements
             win.draw(txtTurn); win.draw(txtInfo); win.draw(txtControls);
             
-            // Draw player indicators with avatars and capture stats
             float indicatorStartY = 530;
-            float indicatorX = WIN_W - UI_W + 200;  // Balanced position in UI panel
+            float indicatorX = WIN_W - UI_W + 200;
             for(int i=0; i<4; i++) {
                 float rowY = indicatorStartY + i*100;
                 
                 playerIndicators[i].setFillColor(players[i].col);
-                // Highlight active player with animated glow
                 if(i == curP) {
                     float glow = 5 + 3 * sin(textPulseClock.getElapsedTime().asSeconds() * 6);
                     playerIndicators[i].setOutlineThickness(glow);
@@ -968,20 +903,17 @@ public:
                     playerIndicators[i].setOutlineThickness(3);
                     playerIndicators[i].setOutlineColor(C_WHITE);
                 }
-                // Grey out if finished/forfeited
                 if(players[i].finished || players[i].forfeited) {
                     playerIndicators[i].setFillColor(sf::Color(80,80,80));
                 }
                 win.draw(playerIndicators[i]);
                 
-                // Draw player name with proper vertical centering to prevent clipping
                 playerLabels[i].setString(players[i].name);
                 sf::FloatRect labelBounds = playerLabels[i].getLocalBounds();
                 playerLabels[i].setOrigin(0, labelBounds.top + labelBounds.height/2);
                 playerLabels[i].setPosition(indicatorX + 40, rowY - 15);
                 win.draw(playerLabels[i]);
                 
-                // Draw capture counter with proper vertical centering to prevent clipping
                 captureCounters[i].setString("Kills: " + std::to_string(players[i].captureCount));
                 sf::FloatRect counterBounds = captureCounters[i].getLocalBounds();
                 captureCounters[i].setOrigin(0, counterBounds.top + counterBounds.height/2);
